@@ -73,9 +73,15 @@ const PILL_WINDOW_W: f32 = 520.0;
 const PILL_WINDOW_H: f32 = 84.0;
 
 mod lab;
+mod stack_hook;
+mod stack_lab;
 pub(crate) mod motion;
 
 pub use lab::{Options as LabOptions, Scene as LabScene, run as run_lab};
+pub use stack_lab::{
+    LabVariant as StackLabVariant, Options as StackLabOptions, Scene as StackLabScene,
+    run as run_stack_lab,
+};
 pub(crate) use motion::{TuneAction, tune_command};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -1406,6 +1412,8 @@ pub struct ScrawlCoordinator {
     /// `scrawl lab pill`: recordings are pretend (`CaptureSource::Lab`), the picker takes no
     /// input and opens no overlay, and nothing looks for windows or phones.
     lab: bool,
+    /// Finished captures as cards (experiment `captureStack`, `stack_hook`).
+    capture_stack: Option<stack_hook::StackState>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -1480,6 +1488,7 @@ impl ScrawlCoordinator {
             hold_picker: false,
             clock: Instant::now(),
             lab: false,
+            capture_stack: None,
         }
     }
 
@@ -2847,6 +2856,7 @@ impl ScrawlCoordinator {
                 self.apply_pill_action(action, cx);
             }
         }
+        self.stack_step(cx);
         let tune = motion::tune();
         let real = self.island_stepped.elapsed().as_secs_f32();
         if real < 0.0002 {
@@ -3576,6 +3586,7 @@ impl ScrawlCoordinator {
                     if let Some(dest) = bundle.destination.clone() {
                         coord.send_completed(dir.clone(), dest, cx);
                     }
+                    coord.stack_finished(&dir, &bundle);
                     coord.set_review_bundle((dir.clone(), bundle), coord.completed_note.clone());
                     if let Some((judgement, url)) = judged {
                         coord.act_on_route(dir, judgement, url, cx);
